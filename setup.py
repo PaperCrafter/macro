@@ -5,8 +5,9 @@ DATA_FILES = []
 OPTIONS = {
     'argv_emulation': True,
     'iconfile': None,
-    'packages': ['pynput', 'tkinter'],
-    'includes': ['tkinter', 'pynput'],
+    'packages': ['pynput'],
+    'includes': ['pynput'],
+    'excludes': ['tkinter', 'tcl', 'tk'],  # 시스템 Tkinter 사용
 }
 
 setup(
