@@ -264,10 +264,6 @@ class MouseMacroApp:
         editor = MacroActionEditor(self.action_container, action, self)
         self.action_editors.append(editor)
 
-    def update_ui_after_reorder(self):
-        """재정렬 후 UI 업데이트"""
-        self._rebuild_action_display()
-
     def remove_action_editor(self, editor):
         self.action_editors = [e for e in self.action_editors if e is not editor]
 
