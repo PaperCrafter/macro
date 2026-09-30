@@ -1,13 +1,13 @@
 from setuptools import setup
+import sys
 
 APP = ['macro_app.py']
 DATA_FILES = []
 OPTIONS = {
     'argv_emulation': True,
     'iconfile': None,
-    'packages': ['pynput'],
-    'includes': ['pynput'],
-    'excludes': ['tkinter', 'tcl', 'tk'],  # 시스템 Tkinter 사용
+    'packages': ['pynput', 'tkinter'],
+    'includes': ['pynput', 'tkinter', 'ttk'],
 }
 
 setup(
