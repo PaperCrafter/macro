@@ -24,6 +24,12 @@ class MacroActionEditor:
         self.frame.pack(fill="x", pady=(0, 6))
         self.type_var = tk.StringVar(value=action.get("type", "move"))
 
+        # 위/아래 이동 버튼
+        move_btn_frame = ttk.Frame(self.frame)
+        move_btn_frame.pack(side="left", padx=(0, 6))
+        ttk.Button(move_btn_frame, text="↑", width=2, command=self.move_up).pack(side="left", padx=(0, 2))
+        ttk.Button(move_btn_frame, text="↓", width=2, command=self.move_down).pack(side="left")
+
         ttk.Label(self.frame, text="유형").pack(side="left", padx=(0, 6))
         ttk.Combobox(self.frame, textvariable=self.type_var, values=["move", "click", "delay"], state="readonly", width=10).pack(side="left", padx=(0, 6))
 
@@ -73,6 +79,12 @@ class MacroActionEditor:
     def remove_self(self):
         self.frame.destroy()
         self.app.remove_action_editor(self)
+
+    def move_up(self):
+        self.app.move_action_up(self)
+
+    def move_down(self):
+        self.app.move_action_down(self)
 
     def to_dict(self):
         action_type = self.type_var.get()
@@ -150,9 +162,15 @@ class MouseMacroApp:
         # Toolbar
         toolbar = ttk.Frame(main)
         toolbar.pack(fill="x", pady=(0, 10))
-        ttk.Button(toolbar, text="➕ 이동", command=lambda: self.add_action({"type": "move", "x": 0, "y": 0, "duration_ms": 0})).pack(side="left", padx=(0, 6))
-        ttk.Button(toolbar, text="➕ 클릭", command=lambda: self.add_action({"type": "click", "button": "left", "count": 1})).pack(side="left", padx=(0, 6))
-        ttk.Button(toolbar, text="➕ 딜레이", command=lambda: self.add_action({"type": "delay", "ms": 500})).pack(side="left", padx=(0, 6))
+
+        # 추가 메뉴버튼
+        add_menu = tk.Menu(toolbar, tearoff=False)
+        add_menu.add_command(label="이동", command=lambda: self.add_action({"type": "move", "x": 0, "y": 0, "duration_ms": 0}))
+        add_menu.add_command(label="클릭", command=lambda: self.add_action({"type": "click", "button": "left", "count": 1}))
+        add_menu.add_command(label="딜레이", command=lambda: self.add_action({"type": "delay", "ms": 500}))
+        add_btn = ttk.Menubutton(toolbar, text="➕ 추가", menu=add_menu)
+        add_btn.pack(side="left", padx=(0, 6))
+
         ttk.Button(toolbar, text="💾 JSON 저장", command=self.save_json).pack(side="left", padx=(0, 6))
         ttk.Button(toolbar, text="📂 JSON 열기", command=self.load_json).pack(side="left")
 
@@ -246,8 +264,35 @@ class MouseMacroApp:
         editor = MacroActionEditor(self.action_container, action, self)
         self.action_editors.append(editor)
 
+    def update_ui_after_reorder(self):
+        """재정렬 후 UI 업데이트"""
+        self._rebuild_action_display()
+
     def remove_action_editor(self, editor):
         self.action_editors = [e for e in self.action_editors if e is not editor]
+
+    def move_action_up(self, editor):
+        try:
+            idx = self.action_editors.index(editor)
+            if idx > 0:
+                self.action_editors[idx], self.action_editors[idx - 1] = self.action_editors[idx - 1], self.action_editors[idx]
+                self._rebuild_action_display()
+        except (ValueError, IndexError):
+            pass
+
+    def move_action_down(self, editor):
+        try:
+            idx = self.action_editors.index(editor)
+            if idx < len(self.action_editors) - 1:
+                self.action_editors[idx], self.action_editors[idx + 1] = self.action_editors[idx + 1], self.action_editors[idx]
+                self._rebuild_action_display()
+        except (ValueError, IndexError):
+            pass
+
+    def _rebuild_action_display(self):
+        """액션 에디터들의 frame 재배치"""
+        for editor in self.action_editors:
+            editor.frame.pack(fill="x", pady=(0, 6))
 
     def get_actions(self):
         return [e.to_dict() for e in self.action_editors]
@@ -359,12 +404,15 @@ class MouseMacroApp:
             return
 
         preset = self.preset_dict[name]
+        # 모든 액션 에디터 제거 (frame도 함께 제거됨)
         for editor in list(self.action_editors):
-            editor.remove_self()
+            editor.frame.destroy()
+        self.action_editors = []
 
         self.repeat_var.set(str(preset.get("repeat", 1)))
         for action in preset.get("actions", []):
-            self.add_action(action)
+            new_editor = MacroActionEditor(self.action_container, action, self)
+            self.action_editors.append(new_editor)
 
         self.preset_name_var.set(name)
         self.status_var.set(f"불러옴: {name}")
@@ -394,12 +442,15 @@ class MouseMacroApp:
 
         try:
             data = json.loads(Path(path).read_text(encoding="utf-8"))
+            # 모든 액션 에디터 제거
             for editor in list(self.action_editors):
-                editor.remove_self()
+                editor.frame.destroy()
+            self.action_editors = []
 
             self.repeat_var.set(str(data.get("repeat", 1)))
             for action in data.get("actions", []):
-                self.add_action(action)
+                new_editor = MacroActionEditor(self.action_container, action, self)
+                self.action_editors.append(new_editor)
 
             self.status_var.set("불러옴")
         except Exception as exc:
